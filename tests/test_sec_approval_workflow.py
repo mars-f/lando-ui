@@ -3,11 +3,12 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import time
 from copy import deepcopy
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 
-pytestmark = pytest.mark.usefixtures("app_config")
+
+# flake8: noqa
 
 
 class LandoAPIDouble:
@@ -40,19 +41,33 @@ class LandoAPIDouble:
 
     def __init__(self):
         self.stack_response = deepcopy(self.default_stack_response)
+        self.post_alt_commit_message_response = {}
 
-    def __call__(self, patched_object_self, operation, *args, **kwargs):
+    def __call__(
+        self, patch_object_self, http_method, operation, *args, **kwargs
+    ):
         """A replacement for LandoAPI.request().
 
         Knows how to return canned responses for the various operations
         against Lando API necessary to render a page on the site.
         """
+        # Mock Lando API operations.
         if operation.startswith("stacks"):
+            # Mock response for "GET /stacks/D<int>" operation.
             return self.stack_response
         elif operation == "transplants":
+            # Mock response for the "GET /transplants" operation.
+            # Pretend there are not transplants in progress for the stack of
+            # revisions.
             return {}
         elif operation == "transplants/dryrun":
+            # Mock response for the "GET /transplants/dryrun" operation.
+            # Pretend there are no landing warnings or blockers.
             return {}
+        elif operation == "submitSanitizedCommitMessage":
+            # Mock response for the "POST /submitSanitizedCommitMessage"
+            # operation.
+            return self.post_alt_commit_message_response
         else:
             raise RuntimeError(
                 "The API method for {} is not implemented by this stub".
@@ -60,18 +75,17 @@ class LandoAPIDouble:
             )
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def app_config(app):
     app.config["ENABLE_SEC_APPROVAL"] = True
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def apidouble():
     """Patch lando-api to return stub responses."""
-    stub = LandoAPIDouble()
-    with patch("landoui.landoapi.LandoAPI.request") as api:
-        api.side_effect = stub
-        yield stub
+    with patch("landoui.landoapi.LandoAPI.request", autospec=True) as api:
+        api.side_effect = LandoAPIDouble()
+        yield api
 
 
 @pytest.fixture
@@ -119,14 +133,14 @@ def test_view_stack_not_logged_in(client, anonymous_session, apidouble):
     assert rv.status_code == 200
 
 
-def test_view_stack_logged_in(client, authenticated_session, apidouble):
+def test_view_stack_logged_in(client, authenticated_session):
     # Basic happy-path test for a logged in user.
     rv = client.get("/D1/")
     assert rv.status_code == 200
 
 
 def test_sec_approval_form_hidden_if_current_revision_is_public(
-    client, authenticated_session, apidouble
+    client, authenticated_session
 ):
     rv = client.get("/D1/")
     assert rv.status_code == 200
@@ -136,13 +150,15 @@ def test_sec_approval_form_hidden_if_current_revision_is_public(
 def test_sec_approval_form_shown_if_current_revision_is_secure(
     client, authenticated_session, apidouble
 ):
-    apidouble.stack_response["revisions"][0]["is_secure"] = True
+    apidouble.side_effect.stack_response["revisions"][0]["is_secure"] = True
     rv = client.get("/D1/")
     assert rv.status_code == 200
     assert b'id="altCommitMessageForm"' in rv.data
 
 
-def test_submit_alt_commit_message(app, client, authenticated_session):
+def test_submit_alt_commit_message(
+    app, client, authenticated_session, apidouble
+):
     # Disable CSRF protection so we can submit forms without tokens.
     app.config["WTF_CSRF_ENABLED"] = False
 
@@ -153,3 +169,13 @@ def test_submit_alt_commit_message(app, client, authenticated_session):
 
     assert rv.status_code == 200
     assert b"s3cr3t" in rv.data
+    apidouble.assert_called_once_with(
+        ANY,
+        "POST",
+        "submitSanitizedCommitMessage",
+        require_auth0=True,
+        json={
+            "revision_phid": "PHID-DREV-phoo",
+            "sanitized_message": "s3cr3t"
+        },
+    )

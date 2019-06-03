@@ -225,6 +225,12 @@ def revisions_handler(revision_id, diff_id=None):
 
 @revisions.route('/D<int:revision_id>/commit-message', methods=('POST', ))
 def alt_commit_message(revision_id):
+    api = LandoAPI(
+        current_app.config['LANDO_API_URL'],
+        auth0_access_token=session.get('access_token'),
+        phabricator_api_token=get_phabricator_api_token()
+    )
+
     if not current_app.config.get("ENABLE_SEC_APPROVAL"):
         abort(404)
 
@@ -244,7 +250,19 @@ def alt_commit_message(revision_id):
     if errors:
         return "\n".join(errors), 400
 
-    # FIXME: ensure the submitted revision is a secure revision!
+    # FIXME: ensure the submitted revision is a secure revision?
+    # Maybe Lando API can do the check for us and we just check the HTTP return
+    # code and error message.
+    # FIXME: bleach the input?
+    api.request(
+        "POST",
+        "submitSanitizedCommitMessage",
+        require_auth0=True,
+        json={
+            "revision_phid": form.phid.data,
+            "sanitized_message": form.alt_commit_message.data
+        }
+    )
 
     return "New commit message for revision {} (PHID {}) set to {}".format(
         revision_id, form.phid.data, form.alt_commit_message.data
