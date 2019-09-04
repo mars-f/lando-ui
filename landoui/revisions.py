@@ -15,7 +15,7 @@ from flask import (
 )
 
 from landoui.app import oidc
-from landoui.forms import TransplantRequestForm
+from landoui.forms import TransplantRequestForm, SecApprovalRequestForm
 from landoui.helpers import (
     get_phabricator_api_token, is_user_authenticated, set_last_local_referrer
 )
@@ -73,6 +73,8 @@ def revision(revision_id):
     )
 
     form = TransplantRequestForm()
+    sec_approval_form = SecApprovalRequestForm()
+
     errors = []
     if form.is_submitted():
         if not is_user_authenticated():
@@ -198,6 +200,7 @@ def revision(revision_id):
         transplants=transplants,
         revisions=revisions,
         revision_phid=revision,
+        sec_approval_form=sec_approval_form,
         target_repo=target_repo,
         errors=errors,
         form=form,
@@ -212,4 +215,42 @@ def revisions_handler(revision_id, diff_id=None):
     # Redirect old revision page URL to stack page.
     return redirect(
         url_for('revisions.revision', revision_id=revision_id), code=301
+    )
+
+
+@revisions.route('/request-sec-approval', methods=('POST', ))
+def sec_approval_request_handler():
+    form = SecApprovalRequestForm()
+    # Errors are stored in a dict containing a list of errors for each field.
+    errors = {}
+
+    if not is_user_authenticated():
+        errors = {'Error': ['You must be logged in to request sec-approval']}
+    elif not form.validate():
+        errors = form.errors
+    else:
+        logger.info(
+            "sec-approval requested",
+            extra={"revision_id": form.revision_id.data}
+        )
+
+    revision_id = form.revision_id.data
+    if revision_id:
+        # Normalize the revision ID to an integer.
+        if revision_id.startswith('D'):
+            # It's a monogram in the form D123
+            revision_id = int(revision_id[1:])
+        else:
+            # Assume it's an integer in a string
+            revision_id = int(revision_id)
+
+        return_url = url_for('.revision', revision_id=revision_id)
+    else:
+        return_url = None
+
+    return render_template(
+        'sec-approval-requested.html',
+        errors=errors,
+        return_url=return_url,
+        phabricator_rev_url=form.revision_url.data,
     )

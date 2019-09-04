@@ -61,40 +61,94 @@ $.fn.landingPreview = function() {
       }
     };
 
+    let swapDisplayEditPanels = ($displayMessagePanel, $editMessagePanel) => {
+      if($editMessagePanel.data('expanded')) {
+        $displayMessagePanel.show();
+        $editMessagePanel.hide();
+        $editMessagePanel.data('expanded', false);
+      } else {
+        $displayMessagePanel.hide();
+        $editMessagePanel.show();
+        $editMessagePanel.data('expanded', true);
+      }
+    };
+
     let longMessages = 0;
 
     $revisions.each(function () {
       let $revision = $(this);
+
+      // Message display
+      let $displayMsgPanel = $revision.find('.StackPage-landingPreview-displayMessagePanel');
       let $toggleButton = $revision.find('.StackPage-landingPreview-expand');
       let $commitMessage = $revision.find('.StackPage-landingPreview-commitMessage');
       let $seeMore = $revision.find('.StackPage-landingPreview-seeMore');
       let lines = $commitMessage.text().split(/\r\n|\r|\n/).length;
 
+      // Message editing
+      let $editMessageBtn = $revision.find('.StackPage-landingPreview-editMessage');
+      let $editMsgPanel = $revision.find('.StackPage-landingPreview-editMessagePanel');
+      let $submitMsgBtn = $editMsgPanel.find("button[type=submit]");
+      let $cancelMsgBtn = $editMsgPanel.find("button.StackPage-landingPreview-cancelMsgEditBtn");
+
+      ///////////////////////////
+      //
+      // Message display routines
+      //
+      ///////////////////////////
+
       if (lines <= 5){
         $toggleButton.hide();
-        return;
+      } else {
+        // Handle long commit messages.
+
+        longMessages++;
+
+        // Sets up the display of how many lines are hidden:
+        // expandCommitMessage and collapseCommitMessage merely toggle this when clicked.
+        $toggleButton.text('Show all ' + lines + ' lines');
+        $seeMore.text('... (' + (lines - 5) + ' more lines)');
+
+        $toggleButton.on('click', (e) => {
+          e.preventDefault();
+          toggleCommitMessage($commitMessage, $seeMore, $toggleButton, lines);
+        });
+
+        $expandAllButton.on('click', (e) => {
+          e.preventDefault();
+          expandCommitMessage($commitMessage, $seeMore, $toggleButton, lines);
+        });
+
+        $collapseAllButton.on('click', (e) => {
+          e.preventDefault();
+          collapseCommitMessage($commitMessage, $seeMore, $toggleButton, lines)
+        });
       }
 
-      longMessages++;
+      ///////////////////////////
+      //
+      // Message editing routines
+      //
+      ///////////////////////////
 
-      // Sets up the display of how many lines are hidden:
-      // expandCommitMessage and collapseCommitMessage merely toggle this when clicked.
-      $toggleButton.text('Show all ' + lines + ' lines');
-      $seeMore.text('... (' + (lines - 5) + ' more lines)');
-
-      $toggleButton.on('click', (e) => {
+      $editMessageBtn.on('click', (e) => {
         e.preventDefault();
-        toggleCommitMessage($commitMessage, $seeMore, $toggleButton, lines);
+        $editMessageBtn.attr({'disabled': true});
+        swapDisplayEditPanels($displayMsgPanel, $editMsgPanel);
       });
 
-      $expandAllButton.on('click', (e) => {
-        e.preventDefault();
-        expandCommitMessage($commitMessage, $seeMore, $toggleButton, lines);
+      $submitMsgBtn.on('click', (e) => {
+        //
+        // e.preventDefault();
+        // TODO redirect to a page that shows a message informing the user about what happened, what
+        //   they should do next.
+        // $editMessageBtn.attr({'disabled': false});
       });
 
-      $collapseAllButton.on('click', (e) => {
+      $cancelMsgBtn.on('click', (e) => {
         e.preventDefault();
-        collapseCommitMessage($commitMessage, $seeMore, $toggleButton, lines)
+        $editMessageBtn.attr({'disabled': false});
+        swapDisplayEditPanels($displayMsgPanel, $editMsgPanel);
       });
     });
 

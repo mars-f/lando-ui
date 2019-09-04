@@ -1,0 +1,24 @@
+{% extends "partials/layout.html" %}
+{% block page_title %}Security Approval Request - Lando - Mozilla{% endblock %}
+{% block main %}
+<main class="container">
+  {% if errors %}
+  <div class="StackPage-errors">
+    <span>Error</span>
+    <ul>
+      {% for field, errorlist in errors.items() %}
+        {% for errmsg in errorlist %}
+          <li>{{ field }}: {{ errmsg }}</li>
+        {% endfor %}
+      {% endfor %}
+    </ul>
+  </div>
+  {% else %}
+  <h1>Request Submitted</h1>
+  <p>Your request for review by the sec-approval team has been submitted.</p>
+
+  <p><a href="{{ phabricator_rev_url }}">View my request in Phabricator</a></p>
+  {% endif %}
+  <p><a href="{{ return_url }}">Return to my revision list</a></p>
+</main>
+{% endblock %}
