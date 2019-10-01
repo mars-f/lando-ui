@@ -73,6 +73,62 @@ $.fn.landingPreview = function() {
       }
     };
 
+    let submitSecApprovalForm = ($form, $error_list) => {
+        const data = new FormData($form[0]);
+
+        fetch('/request-sec-approval', {
+          method: 'POST',
+          headers: {'Accept': 'application/json'},
+          body: data,
+        })
+          .then(response => {
+            if (response.ok || response.status === 400 || response.status === 401) {
+              // The submission succeeded or failed with a validation error.
+              return response.json();
+            } else {
+              // The submission failed with a network or server error.
+              return Promise.reject(
+                new Error("Bad response for form submission: " + response.status)
+              );
+            }
+          })
+          .then(json => {
+            const errors = json.errors;
+
+            if (errors) {
+              // We got a form submission validation error.
+              console.info("sec-approval form submission failed");
+
+              // Overwrite the list of form errors.
+              $error_list.empty();
+              // The data structure with form errors is:
+              //  {
+              //    field_1: [error_msg_1, error_msg_2, ...],
+              //    field_2: [error_msg_1, error_msg_2, ...],
+              //    ...
+              //  }
+              Object.keys(errors).forEach(field => {
+                errors[field].forEach(error => {
+                  $('<li>', {
+                    text: error
+                  }).appendTo($error_list);
+                });
+              });
+
+              $error_list.show();
+
+            } else {
+              // Submission was OK, reload the page and show the "Success" dialog.
+              console.info("sec-approval form submission succeeded");
+              let url = new URL(document.URL);
+              url.searchParams.set('show_approval_success', '1');
+              document.location.assign(url.toString());
+            }
+          })
+          .catch(err => { console.error(err) });
+    };
+
+
     let longMessages = 0;
 
     $revisions.each(function () {
@@ -88,8 +144,8 @@ $.fn.landingPreview = function() {
       // Message editing
       let $editMessageBtn = $revision.find('.StackPage-landingPreview-editMessage');
       let $editMsgPanel = $revision.find('.StackPage-landingPreview-editMessagePanel');
-      let $submitMsgBtn = $editMsgPanel.find("button[type=submit]");
-      let $cancelMsgBtn = $editMsgPanel.find("button.StackPage-landingPreview-cancelMsgEditBtn");
+      let $editMsgForm = $revision.find('form');
+      let $editMsgFormErrorsList = $editMsgForm.find('.StackPage-landingPreview-editMessagePanel-formErrors')
 
       ///////////////////////////
       //
@@ -137,15 +193,12 @@ $.fn.landingPreview = function() {
         swapDisplayEditPanels($displayMsgPanel, $editMsgPanel);
       });
 
-      $submitMsgBtn.on('click', (e) => {
-        //
-        // e.preventDefault();
-        // TODO redirect to a page that shows a message informing the user about what happened, what
-        //   they should do next.
-        // $editMessageBtn.attr({'disabled': false});
+      $editMsgForm.on('submit', (e) => {
+        e.preventDefault();
+        submitSecApprovalForm($editMsgForm, $editMsgFormErrorsList);
       });
 
-      $cancelMsgBtn.on('click', (e) => {
+      $editMsgForm.on('reset', (e) => {
         e.preventDefault();
         $editMessageBtn.attr({'disabled': false});
         swapDisplayEditPanels($displayMsgPanel, $editMsgPanel);
@@ -156,7 +209,6 @@ $.fn.landingPreview = function() {
       $expandAllButton.css('display', 'none');
       $collapseAllButton.css('display', 'none');
     }
-
 
     $previewButton.on('click', (e) => {
       e.preventDefault();

@@ -12,7 +12,7 @@ from flask import (
     redirect,
     session,
     url_for,
-)
+    jsonify)
 
 from landoui.app import oidc
 from landoui.forms import TransplantRequestForm, SecApprovalRequestForm
@@ -222,35 +222,15 @@ def revisions_handler(revision_id, diff_id=None):
 def sec_approval_request_handler():
     form = SecApprovalRequestForm()
     # Errors are stored in a dict containing a list of errors for each field.
-    errors = {}
-
     if not is_user_authenticated():
         errors = {'Error': ['You must be logged in to request sec-approval']}
+        return jsonify(errors=errors), 401
     elif not form.validate():
-        errors = form.errors
+        return jsonify(errors=form.errors), 400
     else:
         logger.info(
             "sec-approval requested",
             extra={"revision_id": form.revision_id.data}
         )
 
-    revision_id = form.revision_id.data
-    if revision_id:
-        # Normalize the revision ID to an integer.
-        if revision_id.startswith('D'):
-            # It's a monogram in the form D123
-            revision_id = int(revision_id[1:])
-        else:
-            # Assume it's an integer in a string
-            revision_id = int(revision_id)
-
-        return_url = url_for('.revision', revision_id=revision_id)
-    else:
-        return_url = None
-
-    return render_template(
-        'sec-approval-requested.html',
-        errors=errors,
-        return_url=return_url,
-        phabricator_rev_url=form.revision_url.data,
-    )
+    return jsonify({})

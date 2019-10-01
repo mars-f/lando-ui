@@ -324,7 +324,7 @@ ul.StackPage-blockers {
   }
 }
 
-.StackPage-errors {
+%error-message {
   background: #E8A2A2;
   border: 1px solid #A53030;
   color:#A53030;
@@ -335,4 +335,15 @@ ul.StackPage-blockers {
     list-style: disc outside;
     margin-left: 2em;
   }
+}
+
+.StackPage-errors {
+  @extend %error-message;
+}
+
+.StackPage-landingPreview-editMessagePanel-formErrors {
+  @extend %error-message;
+  display: none;
+  margin-top: 0.5em;
+  width: 123ch;
 }

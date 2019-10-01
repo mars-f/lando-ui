@@ -68,11 +68,15 @@
           <input type="hidden" name="revision_id" value="{{ revision['id'] }}" />
           <input type="hidden" name="revision_url" value="{{ revision['url'] }}" />
           <label for="new_message">New commit message:</label>
-          <textarea
-                  cols="120"
-                  rows="10"
-                  name="new_message"
-          >{{ revision['commit_message']|safe }}</textarea>
+<textarea
+        cols="120"
+        rows="5"
+        name="new_message"
+>{{ revision['title']|safe }}
+
+{{ revision['summary']|safe}}</textarea>
+          <ul class="StackPage-landingPreview-editMessagePanel-formErrors">
+          </ul>
           <div class="StackPage-landingPreview-editMessagePanel-foot">
             <button type="submit" class="button">Submit For Approval</button>
             <button type="reset" class="StackPage-landingPreview-cancelMsgEditBtn button">Cancel</button>
